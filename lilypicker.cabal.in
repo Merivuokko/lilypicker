@@ -1,0 +1,35 @@
+cabal-version: 3.0
+name: lilypicker
+version: 0.1.0.0
+synopsis: A LilyPond preprocessor
+description:
+homepage: https://github.com/Merivuokko/lilypicker
+license: GPL-3.0-only
+license-file: LICENSE
+author: Aura Kelloniemi
+maintainer: kaura.dev@sange.fi
+copyright: Copyright 2023 Aura Kelloniemi
+tested-with: GHC == { 9.6.2 }
+
+source-repository head
+    type: git
+    location: https://github.com/Merivuokko/lilypicker
+                      
+#include "cabal-common.inc"
+#include "cabal-dependencies.inc"
+
+executable lilypicker
+    import:
+        options,
+        dep-base,
+        dep-bytestring,
+        dep-megaparsec,
+        dep-mtl,
+        dep-text,
+        dep-unordered-containers,
+    hs-source-dirs: src
+    main-is: Main.hs
+    other-modules:
+        Parser,
+        Printer,
+        Types

@@ -1,4 +1,11 @@
-cabal-version: 3.0
+// This is a Cabal file template that is used to generate the final cabal file
+// for this project using the C preprocessor. Use the `autogen` script from
+// the project root directory to do the generation.
+//
+// The following line needs to be the first non-C-style comment line in this
+// file due to Cabal restrictions.
+#include "cabal-prologue.inc"
+
 name: lilypicker
 version: 0.1.0.0
 synopsis: A LilyPond preprocessor

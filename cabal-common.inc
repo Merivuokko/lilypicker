@@ -1,3 +1,10 @@
+// This is a Cabal file template that is used to generate the final cabal file
+// for this project using the C preprocessor. Use the `autogen` script from
+// the project root directory to do the generation.
+//
+// This file has the same terms for use and distribution as other files
+// in this software. See file LICENSE for details.
+
 flag Werror
     description: Enable -Werror for fixing all warnings
     default: False

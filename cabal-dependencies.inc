@@ -14,6 +14,8 @@ common dep-base
     build-depends: base ^>= 4.18
 common dep-bytestring
     build-depends: bytestring >=0.11.4 && <0.13
+common dep-dlist
+    build-depends: dlist ^>= 1.0
 common dep-megaparsec
     build-depends: megaparsec >=9.4.1 && <9.6
 common dep-mtl

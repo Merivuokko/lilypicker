@@ -12,11 +12,10 @@ module Parser (
 
 import Control.Monad (void, when)
 import Control.Monad.State.Strict
-import Data.Bifunctor (second)
-import Data.Foldable (foldl')
+import Data.DList qualified as DL
+import Data.Foldable (find, foldl')
 import Data.HashMap.Strict qualified as HM
 import Data.Text qualified as T
-import Data.Text.Lazy.Builder qualified as TL
 import Data.Void (Void)
 import Text.Megaparsec hiding (State)
 
@@ -45,12 +44,20 @@ parseLily fp text = case parse (evalStateT topLevel initialParserState) fp text 
     Left err -> Left . T.pack . errorBundlePretty $! err
     Right r -> Right r
 
+-- | A parser qhich returns the result of a text parser together with the
+-- source location of the parse's starting point.
+located :: Parser T.Text -> Parser LocatedText
+located p = do
+    pos <- getSourcePos
+    text <- p
+    pure $! (LocatedText {pos = pos, value = text})
+
 -- | Top-level parser
 topLevel :: Parser Lily
 topLevel = lilyFile emptyLily
 
 lilyFile :: Lily -> Parser Lily
-lilyFile lily = space *> lilyLines lily
+lilyFile lily = lilyLines lily
 
 lilyLines :: Lily -> Parser Lily
 lilyLines lily = (lilyLine lily >>= lilyLines) <|> (eof *> (pure $! lily))
@@ -59,6 +66,7 @@ lilyLine :: Lily -> Parser Lily
 lilyLine lily =
     ( label "part definition" (partDefs lily)
         <|> label "parallel music" (parMusic lily)
+        <|> label "shared music" (sharedMusic lily)
         <|> label "preamble" (appendPreamble lily)
         <|> label "epilogue" (appendEpilogue lily)
         <|> label "comment" (comment *> (pure $! lily))
@@ -70,55 +78,94 @@ partDefs :: Lily -> Parser Lily
 partDefs lily = do
     single '=' *> space
     defs <- sepEndBy1 partDef (single '|' *> space)
-    modify' (\s -> s {partNames = fmap fst defs})
+    modify' (\s -> s {partNames = fmap (.name.value) defs})
     pure
         lily
             { parts = foldl' addPart lily.parts defs
             }
   where
-    addPart :: PartMap -> (PartName, Maybe T.Text) -> PartMap
-    addPart parts (partName, function) =
-        let newPart = Part {contents = mempty, function = function}
-        in  HM.insertWith (\_new old -> old) partName newPart parts
+    addPart :: PartMap -> Part -> PartMap
+    addPart partMap part =
+        HM.insertWith (\_new old -> old) part.name.value part partMap
 
-partDef :: Parser (PartName, Maybe T.Text)
+partDef :: Parser Part
 partDef = do
-    name <- word <?> "variable name"
+    name <- located word <?> "variable name"
     function <- optional $! try $! space1 *> textTillBar1
     void $! space
-    pure $! (name, function)
+    pure $!
+        ( Part
+            { name = name {pos = name.pos {sourceColumn = pos1}},
+              function = function,
+              contents = mempty
+            }
+        )
 
 parMusic :: Lily -> Parser Lily
 parMusic lily = do
     void $! single '|'
-    mps <- sepEndBy ((,) <$> getSourcePos <*> textTillBar1) (try $! single '|' *> notFollowedBy (single '|'))
-    barLine <- (try $! chunk "||") *> pure True <|> pure False
-    void $! space
-    partNames <- gets (.partNames)
+    preBar <- single '|' *> pure True <|> pure False
 
-    let mps' = if barLine then fmap (second (<> " |")) mps else mps
+    mps <- sepEndBy1 (located textTillBar1) (single '|')
+    postBar <- single '|' *> pure True <|> pure False
+    void $! space
+
+    partNames <- gets (.partNames)
+    let firstNonBlank = find (not . isBlank) $! fmap (.value) mps
+        skipMusic = maybe "" (\m -> "\\skip {" <> m <> "}") firstNonBlank
+    let !mps' = fmap (processMusic preBar postBar skipMusic) mps
     partMap <- addMusic partNames mps' lily.parts
     pure lily {parts = partMap}
   where
-    addMusic :: [PartName] -> [(SourcePos, T.Text)] -> PartMap -> Parser PartMap
+    addMusic :: [PartName] -> [LocatedText] -> PartMap -> Parser PartMap
     addMusic [] [] partMap = pure $! partMap
-    addMusic [] ms _ = fail $! "Too many music expressions in parallel music: " <> show (fmap fst ms)
+    addMusic [] ms _ = fail $! "Too many music expressions in parallel music: " <> show (fmap (.value) ms)
     addMusic ps [] _ = fail $! "Missing expressions in parallel music: " <> show ps
-    addMusic (p : ps) ((s, m) : ms) partMap = do
-        when (not $! HM.member p partMap) $ error ("Key " <> show p <> " missing from part mapping " <> show partMap)
-        addMusic ps ms $! HM.adjust (\part -> part {contents = part.contents <> TL.fromText (T.replicate (unPos s.sourceColumn - 1) " " <> m) <> "\n"}) p partMap
+    addMusic (partName : partNames) (music : musics) partMap = do
+        addMusic partNames musics $! addToPart partName music partMap
+
+    isBlank :: T.Text -> Bool
+    isBlank = T.all (== ' ')
+
+    processMusic :: Bool -> Bool -> T.Text -> LocatedText -> LocatedText
+    processMusic preBar postBar skip (LocatedText {pos, value = music}) =
+        let pos' =
+                if preBar
+                    then pos {sourceColumn = mkPos $! (unPos pos.sourceColumn) - 1}
+                    else pos
+            music' =
+                (if preBar then "|" else "")
+                    <> (if isBlank music then skip else music)
+                    <> (if postBar then " |" else "")
+        in  LocatedText {pos = pos', value = music'}
+
+addToPart :: PartName -> LocatedText -> PartMap -> PartMap
+addToPart partName music partMap =
+    if not $! HM.member partName partMap
+        then error ("Key " <> show partName <> " missing from part mapping " <> show partMap)
+        else HM.adjust (\part -> part {contents = part.contents `DL.snoc` music}) partName partMap
+
+sharedMusic :: Lily -> Parser Lily
+sharedMusic lily = do
+    void $! single '*'
+    partNames <- gets (.partNames)
+    when (null partNames) $
+        fail "Shared music without any active parts"
+    music <- located textLine
+    let partMap = foldl' (\acc name -> addToPart name music acc) lily.parts partNames
+    pure $! (lily {parts = partMap})
 
 appendPreamble :: Lily -> Parser Lily
 appendPreamble lily = do
     void $! single '-'
-    text <- textLine
-    pure lily {preamble = lily.preamble <> "\n" <> TL.fromText text}
+    text <- located textLine
+    pure lily {preamble = lily.preamble `DL.snoc` text}
 
 appendEpilogue :: Lily -> Parser Lily
 appendEpilogue lily = do
     void $! single '+'
-    text <- textLine
-    pure lily {epilogue = lily.epilogue <> "\n" <> TL.fromText text}
+    text <- located textLine
+    pure lily {epilogue = lily.epilogue `DL.snoc` text}
 
 comment :: Parser ()
 comment = single '%' *> takeWhile1P Nothing (\ch -> ch /= '\n') *> pure ()

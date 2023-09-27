@@ -10,7 +10,7 @@ module Parser (
     parseLily,
 ) where
 
-import Control.Monad (forM_, void, when)
+import Control.Monad (foldM, forM_, void, when)
 import Control.Monad.State.Strict
 import Data.DList qualified as DL
 import Data.Foldable (find, foldl')
@@ -138,7 +138,8 @@ parMusic lily = do
     addMusic [] ms _ = fail $! "Too many music expressions in parallel music: " <> show (fmap (.value) ms)
     addMusic ps [] _ = fail $! "Missing expressions in parallel music: " <> show ps
     addMusic (partName : partNames) (music : musics) partMap = do
-        addMusic partNames musics $! addToPart partName music partMap
+        partMap' <- addToPart partName music partMap
+        addMusic partNames musics partMap'
 
     isBlank :: T.Text -> Bool
     isBlank = T.all (== ' ')
@@ -155,11 +156,13 @@ parMusic lily = do
                     <> (if postBar then " |" else "")
         in  LocatedText {pos = pos', value = music'}
 
-addToPart :: PartName -> LocatedText -> PartMap -> PartMap
-addToPart partName music partMap =
-    if not $! HM.member partName partMap
-        then error ("Key " <> show partName <> " missing from part mapping " <> show partMap)
-        else HM.adjust (\part -> part {contents = part.contents `DL.snoc` music}) partName partMap
+addToPart :: PartName -> LocatedText -> PartMap -> Parser PartMap
+addToPart partName music partMap = do
+    when (not $! HM.member partName partMap) $
+        fail
+            ("Attempt to add music to undefined part: " <> show partName)
+    pure $!
+        HM.adjust (\part -> part {contents = part.contents `DL.snoc` music}) partName partMap
 
 sharedMusic :: Lily -> Parser Lily
 sharedMusic lily = do
@@ -168,14 +171,14 @@ sharedMusic lily = do
     when (null partNames) $
         fail "Shared music without any active parts"
     music <- located textLine
-    let partMap = foldl' (\acc name -> addToPart name music acc) lily.parts partNames
+    partMap <- foldM (\acc name -> addToPart name music acc) lily.parts partNames
     pure $! (lily {parts = partMap})
 
 individualMusic :: Lily -> Parser Lily
 individualMusic lily = do
     partNames <- someTill (varName <* space) (single ':')
     music <- located textLine
-    let partMap = foldl' (\acc name -> addToPart name music acc) lily.parts partNames
+    partMap <- foldM (\acc name -> addToPart name music acc) lily.parts partNames
     pure $! (lily {parts = partMap})
 
 appendPreamble :: Lily -> Parser Lily

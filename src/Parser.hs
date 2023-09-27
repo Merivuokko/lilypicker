@@ -186,10 +186,9 @@ comment :: Parser ()
 comment = single '%' *> takeWhile1P Nothing (\ch -> ch /= '\n') *> pure ()
 
 varName :: Parser T.Text
-varName = word <?> "variable name"
-
-word :: Parser T.Text
-word = textBy some \ch -> (not . isSpace) ch && isNonBarText ch
+varName =
+    label "variable name" $!
+        textBy some \ch -> (not . isSpace) ch && isNonBarText ch && ch /= ':'
 
 textTillBar1 :: Parser T.Text
 textTillBar1 = textBy some isNonBarText
@@ -204,7 +203,7 @@ textBy repeater predicate =
     escape :: Parser T.Text
     escape = do
         void $! single '$'
-        fmap T.singleton . oneOf $! ['$', '|']
+        fmap T.singleton . oneOf $! ['$', ':', '|']
 
 textLine :: Parser T.Text
 textLine = textBy many isText

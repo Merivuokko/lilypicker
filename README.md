@@ -92,7 +92,7 @@ If you wish to emit a comment to the LilyPond output, embed the comments to othe
 
 ### Escaping special characters
 
-You may escape the | character on part definition list and parallel music lines by prepending it with a dollar sign ($).
+You may escape the | and : characters on part definition list, parallel music lines and part names by prepending them with a dollar sign ($).
 To output a dollar sign on these lines, use $$.
 
 ## Example

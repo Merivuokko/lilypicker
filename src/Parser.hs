@@ -23,15 +23,15 @@ import Types
 
 -- | Lily picker parser state
 data ParserState = ParserState
-    { -- | List of currently defined part names
-      partNames :: [PartName]
+    { -- | List of currently active parts
+      activePartNames :: [PartName]
     }
     deriving stock (Eq, Show)
 
 initialParserState :: ParserState
 initialParserState =
     ParserState
-        { partNames = []
+        { activePartNames = []
         }
 
 -- | Type for the parser
@@ -83,7 +83,7 @@ partDefs lily = do
     forM_ partNames \name -> do
         when (HM.member name lily.parts) $
             fail ("Attempt to redefine a part: " <> show name)
-    modify' (\s -> s {partNames = partNames})
+    modify' (\s -> s {activePartNames = partNames})
     pure
         lily
             { parts = foldl' addPart lily.parts defs
@@ -113,7 +113,7 @@ partExtension lily = do
     forM_ partNames \name -> do
         when (not $! HM.member name lily.parts) $
             fail ("Attempt to extend an undefined part: " <> show name)
-    modify' \s -> s {partNames = partNames}
+    modify' \s -> s {activePartNames = partNames}
     pure $! lily
 
 parMusic :: Lily -> Parser Lily
@@ -125,7 +125,7 @@ parMusic lily = do
     postBar <- single '|' *> pure True <|> pure False
     void $! space
 
-    partNames <- gets (.partNames)
+    partNames <- gets (.activePartNames)
     let firstNonBlank = find (not . isBlank) $! fmap (.value) mps
         skipMusic = maybe "" (\m -> "\\skip {" <> m <> "}") firstNonBlank
     let !mps' = fmap (processMusic preBar postBar skipMusic) mps
@@ -163,7 +163,7 @@ addToPart partName music partMap =
 sharedMusic :: Lily -> Parser Lily
 sharedMusic lily = do
     void $! single '*'
-    partNames <- gets (.partNames)
+    partNames <- gets (.activePartNames)
     when (null partNames) $
         fail "Shared music without any active parts"
     music <- located textLine

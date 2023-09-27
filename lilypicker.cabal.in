@@ -31,6 +31,8 @@ executable lilypicker
         dep-base,
         dep-bytestring,
         dep-dlist,
+        dep-file-io,
+        dep-filepath,
         dep-megaparsec,
         dep-mtl,
         dep-text,

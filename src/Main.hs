@@ -12,6 +12,7 @@ import Data.ByteString qualified as B
 import Data.Text.Encoding (decodeUtf8Lenient, encodeUtf8)
 import System.Exit
 import System.IO
+import System.OsPath
 
 import Parser
 import Printer
@@ -19,7 +20,7 @@ import Printer
 main :: IO ()
 main = do
     contents <- decodeUtf8Lenient <$> B.getContents
-    case parseLily "standard input" contents of
+    parseLilyText [osp|standard input|] contents >>= \case
         Right output ->
             B.putStr . encodeUtf8 $! renderLily output
         Left err -> do

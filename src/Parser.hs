@@ -7,7 +7,8 @@
 -- Stability   : experimental
 -- Portability : GHC
 module Parser (
-    parseLily,
+    parseLilyFile,
+    parseLilyText,
 ) where
 
 import Control.Monad (foldM, forM_, void, when)
@@ -16,7 +17,10 @@ import Data.DList qualified as DL
 import Data.Foldable (find, foldl')
 import Data.HashMap.Strict qualified as HM
 import Data.Text qualified as T
+import Data.Text.Encoding (decodeUtf8Lenient)
 import Data.Void (Void)
+import System.File.OsPath
+import System.OsPath
 import Text.Megaparsec hiding (State)
 
 import Types
@@ -35,14 +39,22 @@ initialParserState =
         }
 
 -- | Type for the parser
-type Parser a = StateT ParserState (Parsec Void T.Text) a
+type Parser a = StateT ParserState (ParsecT Void T.Text IO) a
 
--- | Parse a Lily picker file.
--- The string argument is the name of the source.
-parseLily :: String -> T.Text -> Either T.Text Lily
-parseLily fp text = case parse (evalStateT topLevel initialParserState) fp text of
-    Left err -> Left . T.pack . errorBundlePretty $! err
-    Right r -> Right r
+-- | Parse Lily picker input from a Text value.
+-- The string argument is the name of the source, and it is only used for displaying parse errors.
+parseLilyText :: OsString -> T.Text -> IO (Either T.Text Lily)
+parseLilyText fp text = do
+    fp' <- decodeFS fp
+    runParserT (evalStateT topLevel initialParserState) fp' text >>= \case
+        Left err -> pure . Left . T.pack . errorBundlePretty $! err
+        Right r -> pure . Right $! r
+
+-- | Parse Lily picker input from a file.
+parseLilyFile :: OsPath -> IO (Either T.Text Lily)
+parseLilyFile fp = do
+    contents <- decodeUtf8Lenient <$> readFile' fp
+    parseLilyText fp contents
 
 -- | A parser qhich returns the result of a text parser together with the
 -- source location of the parse's starting point.

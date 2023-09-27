@@ -16,6 +16,10 @@ common dep-bytestring
     build-depends: bytestring >=0.11.4 && <0.13
 common dep-dlist
     build-depends: dlist ^>= 1.0
+common dep-file-io
+    build-depends: file-io ^>= 0.1.0.1
+common dep-filepath
+    build-depends: filepath ^>= 1.4.100.4
 common dep-megaparsec
     build-depends: megaparsec >=9.4.1 && <9.6
 common dep-mtl

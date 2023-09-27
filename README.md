@@ -44,11 +44,22 @@ produces the following output:
     Vlc = { e4 c g, c, }
 ```
 
+This command defines new parts that have not been defined already.
+If you want to change the currently active parts' list, use Part extension syntax.
+
+### Part extensions
+
+Lines starting with a greater than sign (\>) change the list of currently active parts.
+Thus the parallel music directives following a part extension directive add music to the parts named in the extension directive.
+
+Part naems to be activated are separated by bars (|).
+The named parts need to have been defined beforehand with a Part definition directive.
+
 ### Parallel music
 
 Lines starting with a bar (|) contain music that is to be split into separate parts.
 Each following | is a part separator.
-Music between the bars is appended to parts in the order given by the most recent preceding part name definition line.
+Music between the bars is appended to the currently active parts in the order given by the most recent part name definition or part extension line.
 
 Empty parts are allowed and they are replaced by skips in the output.
 In this case all sections (separated by bars) are expected to have the same length.
@@ -64,7 +75,7 @@ Two bars may also be used in the end of the parallel music line to append a bar 
 
 ### Adding music to all parts
 
-If a line begins with an asterisk (\*), the rest of the line is added to every part named by the most recent part name definition.
+If a line begins with an asterisk (\*), the rest of the line is added to every active part.
 
 ### Adding text verbatim
 

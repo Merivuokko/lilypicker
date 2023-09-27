@@ -10,7 +10,7 @@ module Parser (
     parseLily,
 ) where
 
-import Control.Monad (void, when)
+import Control.Monad (forM_, void, when)
 import Control.Monad.State.Strict
 import Data.DList qualified as DL
 import Data.Foldable (find, foldl')
@@ -65,6 +65,7 @@ lilyLines lily = (lilyLine lily >>= lilyLines) <|> (eof *> (pure $! lily))
 lilyLine :: Lily -> Parser Lily
 lilyLine lily =
     ( label "part definition" (partDefs lily)
+        <|> label "part extension" (partExtension lily)
         <|> label "parallel music" (parMusic lily)
         <|> label "shared music" (sharedMusic lily)
         <|> label "preamble" (appendPreamble lily)
@@ -78,7 +79,11 @@ partDefs :: Lily -> Parser Lily
 partDefs lily = do
     single '=' *> space
     defs <- sepEndBy1 partDef (single '|' *> space)
-    modify' (\s -> s {partNames = fmap (.name.value) defs})
+    let partNames = fmap (.name.value) defs
+    forM_ partNames \name -> do
+        when (HM.member name lily.parts) $
+            fail ("Attempt to redefine a part: " <> show name)
+    modify' (\s -> s {partNames = partNames})
     pure
         lily
             { parts = foldl' addPart lily.parts defs
@@ -86,11 +91,11 @@ partDefs lily = do
   where
     addPart :: PartMap -> Part -> PartMap
     addPart partMap part =
-        HM.insertWith (\_new old -> old) part.name.value part partMap
+        HM.insert part.name.value part partMap
 
 partDef :: Parser Part
 partDef = do
-    name <- located word <?> "variable name"
+    name <- located varName
     function <- optional $! try $! space1 *> textTillBar1
     void $! space
     pure $!
@@ -100,6 +105,16 @@ partDef = do
               contents = mempty
             }
         )
+
+partExtension :: Lily -> Parser Lily
+partExtension lily = do
+    single '>' *> space
+    partNames <- sepEndBy1 varName (space *> single '|' *> space)
+    forM_ partNames \name -> do
+        when (not $! HM.member name lily.parts) $
+            fail ("Attempt to extend an undefined part: " <> show name)
+    modify' \s -> s {partNames = partNames}
+    pure $! lily
 
 parMusic :: Lily -> Parser Lily
 parMusic lily = do
@@ -169,6 +184,9 @@ appendEpilogue lily = do
 
 comment :: Parser ()
 comment = single '%' *> takeWhile1P Nothing (\ch -> ch /= '\n') *> pure ()
+
+varName :: Parser T.Text
+varName = word <?> "variable name"
 
 word :: Parser T.Text
 word = textBy some \ch -> (not . isSpace) ch && isNonBarText ch

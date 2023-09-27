@@ -73,6 +73,11 @@ This requires that a proper mode is enabled on a part list definition line.
 If the parallel music line begins with two consecutive bars (||) a bar check is prepended to output produced by this line for every part.
 Two bars may also be used in the end of the parallel music line to append a bar check to every part's output.
 
+### Adding music to multiple parts
+
+Music can be added to multiple parts by starting a line with a space-separated list of part names, followed by a colon (:), which in turn shall be followed by some music.
+The music is added to all the named parts regardless of their activity status.
+
 ### Adding music to all parts
 
 If a line begins with an asterisk (\*), the rest of the line is added to every active part.

@@ -68,6 +68,7 @@ lilyLine lily =
         <|> label "part extension" (partExtension lily)
         <|> label "parallel music" (parMusic lily)
         <|> label "shared music" (sharedMusic lily)
+        <|> label "invidual parts music" (individualMusic lily)
         <|> label "preamble" (appendPreamble lily)
         <|> label "epilogue" (appendEpilogue lily)
         <|> label "comment" (comment *> (pure $! lily))
@@ -166,6 +167,13 @@ sharedMusic lily = do
     partNames <- gets (.activePartNames)
     when (null partNames) $
         fail "Shared music without any active parts"
+    music <- located textLine
+    let partMap = foldl' (\acc name -> addToPart name music acc) lily.parts partNames
+    pure $! (lily {parts = partMap})
+
+individualMusic :: Lily -> Parser Lily
+individualMusic lily = do
+    partNames <- someTill (varName <* space) (single ':')
     music <- located textLine
     let partMap = foldl' (\acc name -> addToPart name music acc) lily.parts partNames
     pure $! (lily {parts = partMap})

@@ -80,10 +80,10 @@ lilyLine lily =
         <|> label "part extension" (partExtension lily)
         <|> label "parallel music" (parMusic lily)
         <|> label "shared music" (sharedMusic lily)
-        <|> label "invidual parts music" (individualMusic lily)
         <|> label "preamble" (appendPreamble lily)
         <|> label "epilogue" (appendEpilogue lily)
         <|> label "comment" (comment *> (pure $! lily))
+        <|> label "invidual parts music" (individualMusic lily)
         <|> (pure $! lily)
     )
         <* single '\n'
@@ -209,33 +209,76 @@ comment :: Parser ()
 comment = single '%' *> takeWhile1P Nothing (\ch -> ch /= '\n') *> pure ()
 
 varName :: Parser T.Text
-varName =
-    label "variable name" $!
-        textBy some \ch -> (not . isSpace) ch && isNonBarText ch && ch /= ':'
+varName = word <?> "variable name"
+
+word :: Parser T.Text
+word = label "word" $! textBy some $! escapeSequence <|> quotedString <|> rawText isWordChar
 
 textTillBar1 :: Parser T.Text
-textTillBar1 = textBy some isNonBarText
-
-textBy :: (Parser T.Text -> Parser [T.Text]) -> (Char -> Bool) -> Parser T.Text
-textBy repeater predicate =
-    fmap (T.dropWhileEnd isSpace . T.concat) $!
-        repeater $!
-            (escape <?> "escape sequence")
-                <|> takeWhile1P (Just "text") \ch -> ch /= '$' && predicate ch
-  where
-    escape :: Parser T.Text
-    escape = do
-        void $! single '$'
-        fmap T.singleton . oneOf $! ['$', ':', '|']
+textTillBar1 = textBy some (escapeSequence <|> rawText isNonBarText)
 
 textLine :: Parser T.Text
-textLine = textBy many isText
+textLine = label "text line" $! textBy many (escapeSequence <|> rawText isText)
+
+-- | `textBy` parses a string from the input file using the specified repater
+-- parser (i.e. `some` or `many` and a string parser, such as a combination of
+-- `quotedString`, `rawText` and `escapeSequence`
+textBy :: (Parser T.Text -> Parser [T.Text]) -> Parser T.Text -> Parser T.Text
+textBy repeater p =
+    T.concat <$> repeater p
+
+rawText :: (Char -> Bool) -> Parser T.Text
+rawText = takeWhile1P (Just "raw text")
+
+escapeSequence :: Parser T.Text
+escapeSequence = label "escape sequence" do
+    void $! single escapeChar
+    fmap T.singleton . oneOf $! escapableChars
+
+escapeChar :: Char
+escapeChar = '$'
+
+escapableChars :: [Char]
+escapableChars =
+    [ ' ',
+      '"',
+      '#',
+      '$',
+      '%',
+      '(',
+      ')',
+      '*',
+      '+',
+      '-',
+      ':',
+      '<',
+      '=',
+      '>',
+      '[',
+      ']',
+      '{',
+      '|',
+      '}'
+    ]
+
+quotedString :: Parser T.Text
+quotedString = label "quoted string" do
+    void $! single '"'
+    text <- textBy many (escapeSequence <|> rawText isQuotedText)
+    void $! single '"'
+    pure $! text
+
+isQuotedText :: Char -> Bool
+isQuotedText ch = isText ch && ch /= '"'
 
 isText :: Char -> Bool
-isText ch = ch >= ' ' || ch == '\t'
+isText ch = ch /= escapeChar && (ch >= ' ' || ch == '\t')
 
 isNonBarText :: Char -> Bool
 isNonBarText ch = isText ch && ch /= '|'
+
+isWordChar :: Char -> Bool
+isWordChar ch = isText ch && not (isSpace ch) && ch `notElem` escapableChars
 
 space :: Parser ()
 space = void (takeWhileP (Just "space") isSpace)

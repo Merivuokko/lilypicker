@@ -91,7 +91,7 @@ lilyLine lily =
         <|> appendEpilogue lily
         <|> (comment *> (pure $! lily))
         <|> individualMusic lily
-        <|> (pure $! lily)
+        <|> (space *> (pure $! lily))
     )
         <* single '\n'
 

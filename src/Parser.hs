@@ -83,14 +83,14 @@ lilyLines lily = (lilyLine lily >>= lilyLines) <|> (eof *> (pure $! lily))
 
 lilyLine :: Lily -> Parser Lily
 lilyLine lily =
-    ( label "part definition" (partDefs lily)
-        <|> label "part extension" (partExtension lily)
-        <|> label "parallel music" (parMusic lily)
-        <|> label "shared music" (sharedMusic lily)
-        <|> label "preamble" (appendPreamble lily)
-        <|> label "epilogue" (appendEpilogue lily)
-        <|> label "comment" (comment *> (pure $! lily))
-        <|> label "invidual parts music" (individualMusic lily)
+    ( partDefs lily
+        <|> partExtension lily
+        <|> parMusic lily
+        <|> sharedMusic lily
+        <|> appendPreamble lily
+        <|> appendEpilogue lily
+        <|> (comment *> (pure $! lily))
+        <|> individualMusic lily
         <|> (pure $! lily)
     )
         <* single '\n'
@@ -222,7 +222,7 @@ word :: Parser T.Text
 word = label "word" $! textBy some $! escapeSequence <|> quotedString <|> rawText isWordChar
 
 textTillBar1 :: Parser T.Text
-textTillBar1 = textBy some (escapeSequence <|> rawText isNonBarText)
+textTillBar1 = label "text |" $! textBy some (escapeSequence <|> rawText isNonBarText)
 
 textLine :: Parser T.Text
 textLine = label "text line" $! textBy many (escapeSequence <|> rawText isText)

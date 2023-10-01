@@ -41,20 +41,27 @@ initialParserState =
 -- | Type for the parser
 type Parser a = StateT ParserState (ParsecT Void T.Text IO) a
 
--- | Parse Lily picker input from a Text value.
--- The string argument is the name of the source, and it is only used for displaying parse errors.
+-- | Parse Lily picker input from a Text value. The OsPath argument is the
+-- name of the input source, and is only used for displaying parse errors
+-- (both in Lily picker and LilyPond syntax).
 parseLilyText :: OsString -> T.Text -> IO (Either T.Text Lily)
-parseLilyText fp text = do
-    fp' <- decodeFS fp
-    runParserT (evalStateT topLevel initialParserState) fp' text >>= \case
+parseLilyText fp input = do
+    runLilyParser topLevel initialParserState fp input >>= \case
+        Right (r, _) -> pure . Right $! r
         Left err -> pure . Left . T.pack . errorBundlePretty $! err
-        Right r -> pure . Right $! r
 
 -- | Parse Lily picker input from a file.
 parseLilyFile :: OsPath -> IO (Either T.Text Lily)
 parseLilyFile fp = do
-    contents <- decodeUtf8Lenient <$> readFile' fp
-    parseLilyText fp contents
+    input <- decodeUtf8Lenient <$> readFile' fp
+    parseLilyText fp input
+
+-- | Run the Lily picker parser
+runLilyParser
+    :: Parser a -> ParserState -> OsPath -> T.Text -> IO (Either (ParseErrorBundle T.Text Void) (a, ParserState))
+runLilyParser p s fp input = do
+    fp' <- decodeFS fp
+    runParserT (runStateT p s) fp' input
 
 -- | A parser qhich returns the result of a text parser together with the
 -- source location of the parse's starting point.

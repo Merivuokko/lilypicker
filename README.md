@@ -89,6 +89,13 @@ Lines prepended with this syntax appear in the order they are read from input.
 
 If a line begins with a plus sign (+), the text after that is appended verbatim to the end of LilyPicker's output file.
 
+### Including other files
+
+The `#include` directive may be used to include text from other files.
+The file name to be included shall follow the directive on the same line and should be one word (which means it may need to be quoted).
+
+The contents of the line are parsed exactly the way it would be, if inserted to the original input stream in place of the `#include` line.
+
 ### Comments
 
 Lines beginning with a percent sign (%) are comments.

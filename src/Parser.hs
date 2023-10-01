@@ -89,6 +89,7 @@ lilyLine lily =
         <|> sharedMusic lily
         <|> appendPreamble lily
         <|> appendEpilogue lily
+        <|> includeFile lily
         <|> (comment *> (pure $! lily))
         <|> individualMusic lily
         <|> (space *> (pure $! lily))
@@ -211,6 +212,22 @@ appendEpilogue lily = do
     void $! single '+'
     text <- located textLine
     pure lily {epilogue = lily.epilogue `DL.snoc` text}
+
+includeFile :: Lily -> Parser Lily
+includeFile lily = do
+    chunk "#include" *> space1
+    fileName <- word <* space
+    filePath <- liftIO . encodeFS $! T.unpack fileName
+    input <- fmap decodeUtf8Lenient $! liftIO . readFile' $! filePath
+    oldState <- get
+    (newLily, newState) <-
+        liftIO (runLilyParser (lilyFile lily) oldState filePath input)
+            >>= \case
+                Right (l, s) -> pure $! (l, s)
+                Left (ParseErrorBundle {bundleErrors = errs}) ->
+                    mapM_ parseError errs >> fail "Parse error occured"
+    put newState
+    pure $! newLily
 
 comment :: Parser ()
 comment = single '%' *> takeWhile1P Nothing (\ch -> ch /= '\n') *> pure ()

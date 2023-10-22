@@ -35,6 +35,7 @@ common options
     default-language: GHC2021
     ghc-options:
         -fshow-warning-groups
+        -fwrite-ide-info
 
     if flag(Werror)
         ghc-options:

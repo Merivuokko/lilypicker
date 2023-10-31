@@ -11,7 +11,7 @@
 // separately (and keep the declarations synchronized)  for aeah component.
 
 common dep-base
-    build-depends: base ^>= 4.18
+    build-depends: base ^>= { 4.18, 4.19 }
 common dep-bytestring
     build-depends: bytestring >=0.11.4 && <0.13
 common dep-dlist
@@ -21,7 +21,7 @@ common dep-file-io
 common dep-filepath
     build-depends: filepath ^>= 1.4.100.4
 common dep-megaparsec
-    build-depends: megaparsec >=9.4.1 && <9.6
+    build-depends: megaparsec >=9.5 && <9.7
 common dep-mtl
     build-depends: mtl ^>= 2.3.1
 common dep-text

@@ -19,7 +19,7 @@ common dep-dlist
 common dep-file-io
     build-depends: file-io ^>= 0.1.0.1
 common dep-filepath
-    build-depends: filepath ^>= 1.4.100.4
+    build-depends: filepath ^>= { 1.4.100, 1.5.0 }
 common dep-megaparsec
     build-depends: megaparsec >=9.5 && <9.7
 common dep-mtl

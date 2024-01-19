@@ -1,10 +1,9 @@
-// This is a Cabal file template that is used to generate the final cabal file
-// for this project using the C preprocessor. Use the `autogen` script from
-// the project root directory to do the generation.
-//
-// This file has the same terms for use and distribution as other files
-// in this software. See file LICENSE for details.
-
+$-- This is a Cabal file template that is used to generate the final cabal file
+$-- for this project using the Precabal tool. Use the `autogen` script from
+$-- the project's root directory to do the generation.
+$--
+$-- This file has the same terms for use and distribution as other files
+$-- in this software. See file LICENSE for details.
 flag Werror
     description: Enable -Werror for fixing all warnings
     default: False
@@ -17,6 +16,7 @@ flag Weverything
 
 common options
     default-extensions:
+        ApplicativeDo,
         BlockArguments,
         DataKinds,
         DeriveAnyClass,
@@ -30,19 +30,19 @@ common options
         OverloadedRecordDot,
         OverloadedStrings,
         QuasiQuotes,
+        RecordWildCards,
         StrictData,
         TypeFamilies
     default-language: GHC2021
     ghc-options:
-        -fshow-warning-groups
         -fwrite-ide-info
 
     if flag(Werror)
-        ghc-options:
-            -Werror
+        ghc-options: -Werror
 
     if flag(Weverything)
         ghc-options:
+            -fshow-warning-groups
             -Weverything
             -Wno-all-missed-specialisations
             -Wno-implicit-prelude

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -euE -o pipefail
+
+cleanup() {
+    [[ -n ${tempfile-} ]] && rm -f "$tempfile"
+}
+trap cleanup EXIT ERR
+
+for file in "$@"; do
+    tempfile=$(mktemp -t lilypp-XXXXX)
+    lilypicker < "${file}" > "$tempfile"
+    lilypond --loglevel=BASIC -o "${file%.ply}" "$tempfile"
+done

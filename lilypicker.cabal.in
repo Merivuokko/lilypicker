@@ -34,7 +34,7 @@ executable lilypicker
         ${bytestring},
         ${dlist},
         ${file-io},
-        filepath ^>=1.5,
+        ${filepath},
         ${megaparsec},
         ${mtl},
         ${text},

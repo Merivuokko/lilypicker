@@ -15,7 +15,7 @@
 {- cabal:
 build-depends:
     base >=4.17 && <5,
-    containers ^>=0.6,
+    containers >=0.6 && <0.8,
     file-io ^>=0.1.0.1,
     filepath >=1.4.100 && <1.6,
     megaparsec >=9.5 && <9.7,

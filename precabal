@@ -1,4 +1,4 @@
-#!/usr/bin/env -S cabal run --ignore-project --cabal-file=/dev/null --verbose=1 --
+#!/usr/bin/env -S cabal run --ignore-project --verbose=1 --
 -- -*- haskell -*-
 -- Copyright 2024 Aura Kelloniemi
 --
@@ -66,10 +66,10 @@ import Text.Megaparsec as MP
 
 -- | Command-line options.
 data CliOptions = CliOptions
-    { packageBoundsFile :: Maybe FilePath,
-      inputFile :: FilePath,
-      outputFile :: Maybe FilePath,
-      includeDirs :: [FilePath]
+    { packageBoundsFile :: Maybe FilePath
+    , inputFile :: FilePath
+    , outputFile :: Maybe FilePath
+    , includeDirs :: [FilePath]
     }
 
 -- | Mapping from variable names to their expansion strings
@@ -77,11 +77,11 @@ type VariableMap = HM.HashMap T.Text T.Text
 
 -- | Program configuration is otherwise identical to 'CliOptions' except that OsPaths are used instead of FilePaths and all Maybe values have been resolved.
 data Config = Config
-    { includeDirs :: [OsPath],
-      -- | Stack of included files
-      includedFiles :: NE.NonEmpty OsPath,
-      -- | Mapping from variable names to their expansion strings
-      variables :: VariableMap
+    { includeDirs :: [OsPath]
+    , includedFiles :: NE.NonEmpty OsPath
+    -- ^ Stack of included files
+    , variables :: VariableMap
+    -- ^ Mapping from variable names to their expansion strings
     }
     deriving (Show)
 
@@ -117,14 +117,14 @@ precabalMain = do
     vars <- withUtf8File parsePackageBounds packageBoundsFile
     let config =
             Config
-                { includeDirs = includeDirs,
-                  includedFiles = NE.singleton $! normalise inputFile,
-                  variables = vars
+                { includeDirs = includeDirs
+                , includedFiles = NE.singleton $! normalise inputFile
+                , variables = vars
                 }
     contents <- withUtf8File (parsePrecabal config) inputFile
     writeFile' outputFile (T.encodeUtf8 contents)
 
-signalError :: MonadIO m => T.Text -> m a
+signalError :: (MonadIO m) => T.Text -> m a
 signalError msg = liftIO $! throwIO $! ErrorMessage msg
 
 cliOptionsInfo :: O.ParserInfo CliOptions
@@ -167,7 +167,7 @@ programOptions = do
                     <> O.metavar "DIRECTORY"
                     <> O.help "A directory to look for #included files (may be specified multiple times)"
                 )
-    pure CliOptions {..}
+    pure CliOptions{..}
 
 withUtf8File :: (FilePath -> T.Text -> IO a) -> OsPath -> IO a
 withUtf8File f fp = do
@@ -175,7 +175,7 @@ withUtf8File f fp = do
     fpString <- decodeFS fp
     f fpString contents
 
-handleParseError :: MonadIO m => Either (ParseErrorBundle T.Text Void) a -> m a
+handleParseError :: (MonadIO m) => Either (ParseErrorBundle T.Text Void) a -> m a
 handleParseError = \case
     Left err -> signalError $! T.pack . errorBundlePretty $! err
     Right r -> pure $! r
@@ -213,8 +213,9 @@ parsePackageBounds fp text =
 -- | Type for the template parser
 type Parser a = ReaderT Config (ParsecT Void T.Text IO) a
 
--- | Parse precabal text and expand directives and variables
--- The String argument is used only as the source name – data is not read from the file.
+{- | Parse precabal text and expand directives and variables
+The String argument is used only as the source name – data is not read from the file.
+-}
 parsePrecabal :: Config -> FilePath -> T.Text -> IO T.Text
 parsePrecabal config fp text =
     runParserT (runReaderT parseTopLevel config) fp text >>= handleParseError
@@ -248,10 +249,10 @@ parseExpansion =
     label "expansion" $!
         single '$'
             *> choice
-                [ parseCommand,
-                  parseVariable,
-                  parseEscapedChar,
-                  skipComment *> pure ""
+                [ parseCommand
+                , parseVariable
+                , parseEscapedChar
+                , skipComment *> pure ""
                 ]
 
 parseCommand :: Parser T.Text
@@ -286,13 +287,13 @@ parseIncludeFile [fileName] = do
     tryInclude :: Config -> [OsPath] -> IO (Either T.Text T.Text)
     tryInclude config (file : files) =
         let includedFiles' = NE.cons file config.includedFiles
-            config' = config {includedFiles = includedFiles'}
+            config' = config{includedFiles = includedFiles'}
             action = fmap Right $! withUtf8File (parsePrecabal config') file
             handler (exc :: IOException) =
                 if isDoesNotExistError exc
                     then tryInclude config files
                     else throwIO exc
-        in  if file `notElem` config.includedFiles
+         in if file `notElem` config.includedFiles
                 then action `catch` handler
                 else
                     pure . Left $
@@ -301,10 +302,10 @@ parseIncludeFile [fileName] = do
     tryInclude _ [] = fail $! "Could not find include file `" <> T.unpack fileName <> "`"
 parseIncludeFile _ = failParser $ "include-file command takes exactly one argument"
 
-skipSpaceLF1 :: MonadParsec Void T.Text m => m ()
+skipSpaceLF1 :: (MonadParsec Void T.Text m) => m ()
 skipSpaceLF1 = void $ takeWhile1P (Just "space") (\ch -> ch == '\n' || ch == ' ')
 
-skipSpace :: MonadParsec Void T.Text m => m ()
+skipSpace :: (MonadParsec Void T.Text m) => m ()
 skipSpace = void $! takeWhileP (Just "space") (\ch -> ch == ' ')
 
 parseVariable :: Parser T.Text
@@ -320,12 +321,12 @@ parseName =
     fmap fold $!
         some $!
             choice
-                [ parseQuotedString,
-                  parseUnquotedString,
-                  parseExpansion
+                [ parseQuotedString
+                , parseUnquotedString
+                , parseExpansion
                 ]
 
-parseQuotedString :: forall m. MonadParsec Void T.Text m => m T.Text
+parseQuotedString :: forall m. (MonadParsec Void T.Text m) => m T.Text
 parseQuotedString = do
     quote <- oneOf ['"', '\'']
     contents <- fmap fold $! many (rawText quote <|> escape)
@@ -346,7 +347,7 @@ parseQuotedString = do
                     '\\' -> pure "\\"
                     ch -> failParser $ "Unsupported escape sequence: \\" <> T.singleton ch
 
-parseUnquotedString :: MonadParsec Void T.Text m => m T.Text
+parseUnquotedString :: (MonadParsec Void T.Text m) => m T.Text
 parseUnquotedString =
     takeWhile1P
         (Just "identifier character sequence")
@@ -359,9 +360,9 @@ parseEscapedChar =
             <|> (single '\n' *> pure "")
         )
 
-skipComment :: MonadParsec Void T.Text m => m ()
+skipComment :: (MonadParsec Void T.Text m) => m ()
 skipComment =
     void $! label "comment" $! chunk "--" *> takeWhileP Nothing (\ch -> ch /= '\n')
 
-failParser :: MonadParsec Void T.Text m => T.Text -> m a
+failParser :: (MonadParsec Void T.Text m) => T.Text -> m a
 failParser msg = fancyFailure $! Set.singleton (ErrorFail $! T.unpack msg)

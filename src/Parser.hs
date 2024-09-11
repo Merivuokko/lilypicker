@@ -28,14 +28,17 @@ import Types
 -- | Lily picker parser state
 data ParserState = ParserState
     { -- | List of currently active parts
-      activePartNames :: [PartName]
+      activePartNames :: [PartName],
+      -- | Relative directory name of the currently parsed file
+      currentDirectory :: OsPath
     }
     deriving stock (Eq, Show)
 
-initialParserState :: ParserState
-initialParserState =
+initialParserState :: OsPath -> ParserState
+initialParserState dir =
     ParserState
-        { activePartNames = []
+        { activePartNames = [],
+          currentDirectory = dir
         }
 
 -- | Type for the parser
@@ -44,9 +47,10 @@ type Parser a = StateT ParserState (ParsecT Void T.Text IO) a
 -- | Parse Lily picker input from a Text value. The OsPath argument is the
 -- name of the input source, and is only used for displaying parse errors
 -- (both in Lily picker and LilyPond syntax).
-parseLilyText :: OsString -> T.Text -> IO (Either T.Text Lily)
+parseLilyText :: OsPath -> T.Text -> IO (Either T.Text Lily)
 parseLilyText fp input = do
-    runLilyParser topLevel initialParserState fp input >>= \case
+    let dir = takeDirectory fp
+    runLilyParser topLevel (initialParserState dir) fp input >>= \case
         Right (r, _) -> pure . Right $! r
         Left err -> pure . Left . T.pack . errorBundlePretty $! err
 
@@ -218,15 +222,18 @@ includeFile lily = do
     chunk "#include" *> space1
     fileName <- word <* space
     filePath <- liftIO . encodeFS $! T.unpack fileName
-    input <- fmap decodeUtf8Lenient $! liftIO . readFile' $! filePath
+    pathPrefix <- gets (.currentDirectory)
+    let completeFilePath = pathPrefix </> filePath
+    input <- fmap decodeUtf8Lenient $! liftIO . readFile' $! completeFilePath
     oldState <- get
+    let oldState' = oldState {currentDirectory = takeDirectory completeFilePath}
     (newLily, newState) <-
-        liftIO (runLilyParser (lilyFile lily) oldState filePath input)
+        liftIO (runLilyParser (lilyFile lily) oldState' completeFilePath input)
             >>= \case
                 Right (l, s) -> pure $! (l, s)
                 Left (ParseErrorBundle {bundleErrors = errs}) ->
                     mapM_ parseError errs >> fail "Parse error occured"
-    put newState
+    put newState {currentDirectory = pathPrefix}
     pure $! newLily
 
 comment :: Parser ()

@@ -151,7 +151,7 @@ parMusic lily = do
     void $! space
 
     partNames <- gets (.activePartNames)
-    let firstNonBlank = find (not . isBlank) $! fmap (.value) mps
+    let firstNonBlank = find (\mus -> not $ isBlank mus || isEmpty mus) $! fmap (.value) mps
         skipMusic = maybe "" (\m -> "\\skip {" <> m <> "}") firstNonBlank
     let !mps' = fmap (processMusic preBar postBar skipMusic) mps
     partMap <- addMusic partNames mps' lily.parts
@@ -166,7 +166,10 @@ parMusic lily = do
         addMusic partNames musics partMap'
 
     isBlank :: T.Text -> Bool
-    isBlank = T.all (== ' ')
+    isBlank t = T.all (== ' ') t
+
+    isEmpty :: T.Text -> Bool
+    isEmpty t = T.dropAround (== ' ') t == "-"
 
     processMusic :: Bool -> Bool -> T.Text -> LocatedText -> LocatedText
     processMusic preBar postBar skip (LocatedText {pos, value = music}) =
@@ -176,7 +179,7 @@ parMusic lily = do
                     else pos
             music' =
                 (if preBar then "|" else "")
-                    <> (if isBlank music then skip else music)
+                    <> (if isBlank music then skip else if isEmpty music then "" else music)
                     <> (if postBar then " |" else "")
         in  LocatedText {pos = pos', value = music'}
 

@@ -86,6 +86,10 @@ This is especially useful for incremental music writing (e.g. while doing a dict
 In this case all music expressions (separated by bars) are expected to have the same length.
 If this is not the case, filling empty sections with skips is not possible and the output will be incorrect.
 The length of the skip is derived from the length of the first non-empty music expression on the same parallel music line.
+This feature interacts very badly with lyric mode and other modes, which don't understand \skip.
+
+If a parallel music field (text between bar lines) contains only a single hyphen (`-`), no output is produced.
+This can be used to work around unwanted consequences of automatic skip insertion.
 
 Parallel music definitions do not need to contain just music expressions.
 For example lyrics can also be intermixed with the music with this directive.

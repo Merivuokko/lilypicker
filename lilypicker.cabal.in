@@ -10,7 +10,7 @@ $-- in this file due to Cabal restrictions.
 $(include-file cabal/prologue.inc)$
 
 name: lilypicker
-version: 0.1.0.0
+version: 0.2.0.0
 synopsis: A LilyPond preprocessor
 description:
 homepage: https://github.com/Merivuokko/lilypicker

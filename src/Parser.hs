@@ -254,7 +254,7 @@ textTillBar1 = label "text |" $! textBy some (escapeSequence <|> rawText isNonBa
 textLine :: Parser T.Text
 textLine = label "text line" $! textBy many (escapeSequence <|> rawText isText)
 
--- | `textBy` parses a string from the input file using the specified repater
+-- | `textBy` parses a string from the input file using the specified repeater
 -- parser (i.e. `some` or `many` and a string parser, such as a combination of
 -- `quotedString`, `rawText` and `escapeSequence`
 textBy :: (Parser T.Text -> Parser [T.Text]) -> Parser T.Text -> Parser T.Text

@@ -14,7 +14,7 @@ module Parser (
 import Control.Monad (foldM, forM_, void, when)
 import Control.Monad.State.Strict
 import Data.DList qualified as DL
-import Data.Foldable (find, foldl')
+import Data.Foldable (find)
 import Data.HashMap.Strict qualified as HM
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8Lenient)
